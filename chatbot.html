@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JCE AI Assistant - Chat</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy: #0a1628; --navy-mid: #112240; --navy-card: #0f1e38;
+      --gold: #d4a843; --gold-light: #f0c55a;
+      --text: #e8dcc8; --text-muted: #8a9bbf;
+      --error: #ff6b6b; --success: #51cf66;
+    }
+
+    body { font-family: 'DM Sans', sans-serif; background: var(--navy); color: var(--text); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+    /* Sidebar */
+    .layout { display: flex; height: 100vh; }
+
+    .sidebar {
+      width: 260px; min-width: 260px;
+      background: var(--navy-mid);
+      border-right: 1px solid rgba(212,168,67,0.15);
+      display: flex; flex-direction: column;
+      padding: 1.5rem;
+    }
+
+    .sidebar-logo {
+      display: flex; align-items: center; gap: 0.7rem;
+      margin-bottom: 2rem;
+      font-family: 'Playfair Display', serif;
+      color: var(--gold);
+    }
+
+    .logo-icon { width: 36px; height: 36px; background: linear-gradient(135deg, var(--gold), var(--gold-light)); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0; }
+
+    .new-chat-btn {
+      width: 100%; padding: 0.7rem 1rem;
+      background: rgba(212,168,67,0.1);
+      border: 1px solid rgba(212,168,67,0.3);
+      color: var(--gold); border-radius: 10px;
+      font-family: 'DM Sans', sans-serif; font-size: 0.9rem; cursor: pointer;
+      transition: all 0.2s; margin-bottom: 1.5rem;
+    }
+    .new-chat-btn:hover { background: rgba(212,168,67,0.2); }
+
+    .sidebar-section { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 0.7rem; }
+
+    .quick-link {
+      padding: 0.6rem 0.8rem; border-radius: 8px;
+      font-size: 0.85rem; color: var(--text-muted);
+      cursor: pointer; transition: all 0.2s; margin-bottom: 0.3rem;
+      display: flex; align-items: center; gap: 0.6rem;
+    }
+    .quick-link:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+
+    .sidebar-bottom { margin-top: auto; }
+
+    .user-info {
+      padding: 0.8rem; border-radius: 10px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      margin-bottom: 0.7rem;
+    }
+
+    .user-name { font-weight: 600; font-size: 0.9rem; }
+    .user-email { font-size: 0.75rem; color: var(--text-muted); }
+
+    .logout-btn {
+      width: 100%; padding: 0.6rem; border: none;
+      background: rgba(255,107,107,0.1); color: #ff6b6b;
+      border-radius: 8px; font-family: 'DM Sans', sans-serif;
+      font-size: 0.85rem; cursor: pointer; transition: all 0.2s;
+    }
+    .logout-btn:hover { background: rgba(255,107,107,0.2); }
+
+    /* Main chat area */
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    .chat-header {
+      padding: 1rem 1.5rem;
+      background: rgba(17,34,64,0.8);
+      border-bottom: 1px solid rgba(212,168,67,0.15);
+      display: flex; align-items: center; gap: 0.8rem;
+      backdrop-filter: blur(10px);
+    }
+
+    .bot-avatar { width: 38px; height: 38px; background: linear-gradient(135deg, var(--gold), var(--gold-light)); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0; }
+
+    .bot-info { flex: 1; }
+    .bot-name { font-weight: 600; }
+    .bot-status { font-size: 0.75rem; color: var(--success); display: flex; align-items: center; gap: 0.3rem; }
+    .status-dot { width: 7px; height: 7px; background: var(--success); border-radius: 50%; animation: pulse 2s infinite; }
+
+    /* Messages */
+    .messages {
+      flex: 1; overflow-y: auto; padding: 1.5rem;
+      display: flex; flex-direction: column; gap: 1rem;
+      scroll-behavior: smooth;
+    }
+
+    .messages::-webkit-scrollbar { width: 4px; }
+    .messages::-webkit-scrollbar-track { background: transparent; }
+    .messages::-webkit-scrollbar-thumb { background: rgba(212,168,67,0.3); border-radius: 4px; }
+
+    .message { display: flex; gap: 0.8rem; animation: msgIn 0.3s ease; max-width: 85%; }
+    .message.user { align-self: flex-end; flex-direction: row-reverse; }
+    .message.bot { align-self: flex-start; }
+
+    .msg-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; flex-shrink: 0; align-self: flex-end; }
+    .bot .msg-avatar { background: linear-gradient(135deg, var(--gold), var(--gold-light)); }
+    .user .msg-avatar { background: rgba(255,255,255,0.1); }
+
+    .msg-bubble {
+      padding: 0.85rem 1.1rem; border-radius: 16px;
+      font-size: 0.92rem; line-height: 1.6; white-space: pre-wrap;
+    }
+
+    .bot .msg-bubble {
+      background: var(--navy-card);
+      border: 1px solid rgba(212,168,67,0.15);
+      border-bottom-left-radius: 4px;
+    }
+
+    .user .msg-bubble {
+      background: linear-gradient(135deg, rgba(212,168,67,0.25), rgba(212,168,67,0.15));
+      border: 1px solid rgba(212,168,67,0.3);
+      border-bottom-right-radius: 4px;
+      color: var(--text);
+    }
+
+    .msg-time { font-size: 0.7rem; color: var(--text-muted); margin-top: 0.3rem; }
+    .user .msg-time { text-align: right; }
+
+    /* Suggestions */
+    .suggestions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+    .suggestion-chip {
+      padding: 0.35rem 0.85rem;
+      background: rgba(212,168,67,0.08);
+      border: 1px solid rgba(212,168,67,0.25);
+      border-radius: 20px; font-size: 0.78rem;
+      color: var(--gold); cursor: pointer; transition: all 0.2s;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .suggestion-chip:hover { background: rgba(212,168,67,0.2); transform: translateY(-1px); }
+
+    /* Typing indicator */
+    .typing { display: flex; gap: 4px; align-items: center; padding: 0.85rem 1.1rem; background: var(--navy-card); border: 1px solid rgba(212,168,67,0.15); border-radius: 16px; border-bottom-left-radius: 4px; width: fit-content; }
+    .typing-dot { width: 7px; height: 7px; background: var(--gold); border-radius: 50%; animation: typingBounce 1.2s infinite; }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+    /* Input area */
+    .input-area {
+      padding: 1rem 1.5rem;
+      background: rgba(17,34,64,0.8);
+      border-top: 1px solid rgba(212,168,67,0.15);
+      backdrop-filter: blur(10px);
+    }
+
+    .input-wrapper { display: flex; gap: 0.8rem; align-items: flex-end; }
+
+    textarea {
+      flex: 1; padding: 0.85rem 1.1rem;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 14px; color: var(--text);
+      font-size: 0.95rem; font-family: 'DM Sans', sans-serif;
+      resize: none; outline: none; min-height: 50px; max-height: 120px;
+      transition: border-color 0.2s;
+      line-height: 1.5;
+    }
+
+    textarea:focus { border-color: rgba(212,168,67,0.5); }
+    textarea::placeholder { color: var(--text-muted); }
+
+    .send-btn {
+      width: 50px; height: 50px; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--gold), var(--gold-light));
+      border: none; border-radius: 14px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem; transition: all 0.2s;
+    }
+    .send-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(212,168,67,0.4); }
+    .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .input-hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; text-align: center; }
+
+    /* Welcome screen */
+    .welcome {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center; padding: 2rem;
+    }
+
+    .welcome-icon { font-size: 4rem; margin-bottom: 1rem; animation: float 3s ease-in-out infinite; }
+    .welcome h2 { font-family: 'Playfair Display', serif; font-size: 1.8rem; margin-bottom: 0.5rem; }
+    .welcome p { color: var(--text-muted); max-width: 400px; line-height: 1.7; margin-bottom: 2rem; }
+
+    .welcome-chips { display: flex; flex-wrap: wrap; gap: 0.7rem; justify-content: center; max-width: 500px; }
+    .welcome-chip {
+      padding: 0.5rem 1rem;
+      background: rgba(212,168,67,0.08);
+      border: 1px solid rgba(212,168,67,0.2);
+      border-radius: 25px; font-size: 0.85rem; color: var(--gold);
+      cursor: pointer; transition: all 0.2s;
+    }
+    .welcome-chip:hover { background: rgba(212,168,67,0.2); transform: translateY(-2px); }
+
+    @keyframes msgIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes typingBounce { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-6px); } }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-icon">🎓</div>
+        <span style="font-size:1rem">JCE Assistant</span>
+      </div>
+
+      <button class="new-chat-btn" onclick="clearChat()">+ New Chat</button>
+
+      <div class="sidebar-section">Quick Topics</div>
+      <div class="quick-link" onclick="sendQuick('Tell me about the college')">🏛️ About College</div>
+      <div class="quick-link" onclick="sendQuick('What courses are offered?')">🎓 Courses</div>
+      <div class="quick-link" onclick="sendQuick('What are the MCA fees?')">💰 Fees</div>
+      <div class="quick-link" onclick="sendQuick('How to apply for admission?')">📝 Admissions</div>
+      <div class="quick-link" onclick="sendQuick('Tell me about hostel facilities')">🏠 Hostel</div>
+      <div class="quick-link" onclick="sendQuick('What are the placement stats?')">💼 Placements</div>
+      <div class="quick-link" onclick="sendQuick('What scholarships are available?')">🎖️ Scholarships</div>
+      <div class="quick-link" onclick="sendQuick('Contact information')">📞 Contact</div>
+
+      <div class="sidebar-bottom">
+        <div class="user-info">
+          <div class="user-name" id="sidebarName">Loading...</div>
+          <div class="user-email" id="sidebarEmail"></div>
+        </div>
+        <button class="logout-btn" onclick="handleLogout()">Sign Out</button>
+      </div>
+    </aside>
+
+    <!-- Main Chat -->
+    <div class="main">
+      <div class="chat-header">
+        <div class="bot-avatar">🤖</div>
+        <div class="bot-info">
+          <div class="bot-name">JCE Virtual Assistant</div>
+          <div class="bot-status"><span class="status-dot"></span> Online — Ready to help</div>
+        </div>
+        <div style="font-size:0.8rem;color:var(--text-muted)">Jain College of Engineering, Belagavi</div>
+      </div>
+
+      <!-- Welcome Screen (shown initially) -->
+      <div class="welcome" id="welcomeScreen">
+        <div class="welcome-icon">🤖</div>
+        <h2>Hello, <span id="welcomeName" style="color:var(--gold)">Student</span>!</h2>
+        <p>I'm your AI assistant for Jain College of Engineering. Ask me anything about courses, fees, admissions, facilities, and more!</p>
+        <div class="welcome-chips">
+          <div class="welcome-chip" onclick="sendQuick('Tell me about the college')">🏛️ About JCE</div>
+          <div class="welcome-chip" onclick="sendQuick('MCA admission eligibility')">📋 MCA Eligibility</div>
+          <div class="welcome-chip" onclick="sendQuick('What are the MCA fees?')">💰 MCA Fees</div>
+          <div class="welcome-chip" onclick="sendQuick('How to apply for admission?')">📝 How to Apply</div>
+          <div class="welcome-chip" onclick="sendQuick('What are the placement stats?')">💼 Placements</div>
+          <div class="welcome-chip" onclick="sendQuick('Tell me about hostel facilities')">🏠 Hostel</div>
+        </div>
+      </div>
+
+      <!-- Messages area (hidden initially) -->
+      <div class="messages" id="messages" style="display:none"></div>
+
+      <div class="input-area">
+        <div class="input-wrapper">
+          <textarea id="messageInput" placeholder="Ask me anything about JCE Belagavi..." rows="1"
+            oninput="autoResize(this)" onkeydown="handleKey(event)"></textarea>
+          <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="Send message">➤</button>
+        </div>
+        <div class="input-hint">Press Enter to send · Shift+Enter for new line</div>
+      </div>
+    </div>
+  </div>
+
+ <script>
+let isLoading = false;
+let chatStarted = false;
+
+// Load user info
+window.addEventListener('load', async () => {
+  try {
+    const res = await fetch('/api/me', {
+      credentials: 'include'
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      document.getElementById('welcomeName').textContent = data.user.name.split(' ')[0];
+      document.getElementById('sidebarName').textContent = data.user.name;
+      document.getElementById('sidebarEmail').textContent = data.user.email;
+    } else {
+      window.location.href = '/login';
+    }
+  } catch {
+    window.location.href = '/login';
+  }
+});
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+function getTime() {
+  return new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+}
+
+function startChat() {
+  if (!chatStarted) {
+    chatStarted = true;
+    document.getElementById('welcomeScreen').style.display = 'none';
+    document.getElementById('messages').style.display = 'flex';
+  }
+}
+
+function addMessage(text, type, suggestions = []) {
+  startChat();
+  const container = document.getElementById('messages');
+
+  const div = document.createElement('div');
+  div.className = `message ${type}`;
+
+  const avatarEmoji = type === 'bot' ? '🤖' : '👤';
+
+  let suggestionsHTML = '';
+  if (suggestions.length > 0) {
+    suggestionsHTML = `<div class="suggestions">
+      ${suggestions.map(s => `<button class="suggestion-chip" onclick="sendQuick('${s}')">${s}</button>`).join('')}
+    </div>`;
+  }
+
+  div.innerHTML = `
+    <div class="msg-avatar">${avatarEmoji}</div>
+    <div>
+      <div class="msg-bubble">${text}</div>
+      ${suggestionsHTML}
+      <div class="msg-time">${getTime()}</div>
+    </div>
+  `;
+
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function showTyping() {
+  startChat();
+  const container = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = 'message bot';
+  div.id = 'typingIndicator';
+  div.innerHTML = `
+    <div class="msg-avatar">🤖</div>
+    <div class="typing">
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+    </div>
+  `;
+  container.appendChild(div);
+}
+
+function hideTyping() {
+  const el = document.getElementById('typingIndicator');
+  if (el) el.remove();
+}
+
+async function sendMessage() {
+  if (isLoading) return;
+
+  const input = document.getElementById('messageInput');
+  const text = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  input.style.height = 'auto';
+
+  addMessage(text, 'user');
+  await processMessage(text);
+}
+
+async function sendQuick(text) {
+  if (isLoading) return;
+  addMessage(text, 'user');
+  await processMessage(text);
+}
+
+async function processMessage(text) {
+  isLoading = true;
+  document.getElementById('sendBtn').disabled = true;
+  showTyping();
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      credentials: 'include',   // 🔥 FIX
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ message: text })
+    });
+
+    hideTyping();
+
+    if (res.status === 401) {
+      window.location.href = '/login';
+      return;
+    }
+
+    const data = await res.json();
+
+    addMessage(data.reply || data.message || "No response", 'bot');
+
+  } catch (err) {
+    hideTyping();
+    addMessage("❌ Cannot connect to server", 'bot');
+    console.error(err);
+  } finally {
+    isLoading = false;
+    document.getElementById('sendBtn').disabled = false;
+  }
+}
+
+function clearChat() {
+  chatStarted = false;
+  document.getElementById('messages').innerHTML = '';
+  document.getElementById('messages').style.display = 'none';
+  document.getElementById('welcomeScreen').style.display = 'flex';
+}
+
+async function handleLogout() {
+  await fetch('/api/logout', {
+    method: 'POST',
+    credentials: 'include'
+  });
+  window.location.href = '/';
+}
+</script>
+</body>
+</html>
